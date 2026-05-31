@@ -329,7 +329,7 @@
     currentPack = [];
     revealedCount = 0;
     dom.cardsRow.innerHTML = '';
-    dom.cardsRow.classList.remove('active');
+    dom.cardsRow.className = 'cards-row';
     dom.packSummary.classList.remove('active');
     dom.revealCounter.classList.remove('active');
     
