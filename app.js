@@ -12,6 +12,7 @@
   const VERSION_KEY = 'namuwiki_gacha_version';
   const CURRENT_VERSION = '4.0';
   const PACK_SIZE = 5;
+  const CARDS_PER_PAGE = 24;
 
   // 8-tier rarity configurations based on Combined Score (Text length + Contributors * 100)
   const RARITY_CONFIG = {
@@ -28,11 +29,24 @@
   // ============ State ============
   let collection = [];
   let stats = { totalPulls: 0 };
-  let currentFilter = 'all';
   let currentSort = 'newest';
   let isPulling = false;
   let offlineDb = []; // Local offline database for ACG
   let loadedChunkIndex = -1; // Index of current loaded JSON chunk
+
+  // 프리미엄 기능 상태 변수들
+  let currentPackType = 'all'; // 'all', 'music', 'game', 'comic', 'anime', 'novel'
+  let currentCollectionPage = 1;
+  let activeRarityFilters = []; // 비어있으면 '전체'
+  let activeGenreFilters = [];  // 비어있으면 '전체'
+
+  const PACK_TYPE_TO_GENRE = {
+    music: '보컬로이드/동인음악',
+    game: '게임',
+    comic: '만화/웹툰',
+    anime: '애니메이션',
+    novel: '라이트노벨'
+  };
 
   // Pack state
   let currentPack = [];      // array of card entries for current pack
@@ -47,6 +61,7 @@
     pages: $$('.page'),
     packStage: $('#pack-stage'),
     packEnvelope: $('#pack-envelope'),
+    packEnvelopeText: $('#pack-envelope-text'),
     cardsRow: $('#cards-row'),
     packSummary: $('#pack-summary'),
     packSummaryRarities: $('#pack-summary-rarities'),
@@ -56,10 +71,28 @@
     totalCollection: $('#total-collection'),
     collectionGrid: $('#collection-grid'),
     collectionEmpty: $('#collection-empty'),
-    filterPills: $$('.filter-pill'),
     sortSelect: $('#sort-select'),
     clearBtn: $('#clear-btn'),
     
+    // 3D Pack Carousel
+    packCarousel: $('#pack-carousel'),
+    carouselPrevBtn: $('#carousel-prev-btn'),
+    carouselNextBtn: $('#carousel-next-btn'),
+
+    // Deck stack controls
+    deckControls: $('#deck-controls'),
+    revealAllBtn: $('#reveal-all-btn'),
+
+    // Multi-select filters
+    filterPillsRarity: $('#filter-pills-rarity'),
+    filterPillsGenre: $('#filter-pills-genre'),
+
+    // Pagination
+    paginationBar: $('#pagination-bar'),
+    pagPrevBtn: $('#pag-prev-btn'),
+    pagNextBtn: $('#pag-next-btn'),
+    pagInfo: $('#pag-info'),
+
     // Stats dashboard (v3)
     statTotal: $('#stat-total'),
     statLg: $('#stat-lg'),
@@ -72,15 +105,11 @@
     statN: $('#stat-n'),
 
     // Collection Filters Count (v3)
-    countAll: $('#count-all'),
     countLg: $('#count-lg'),
     countSsr: $('#count-ssr'),
     countUr: $('#count-ur'),
     countEp: $('#count-ep'),
     countSr: $('#count-sr'),
-    countR: $('#count-r'),
-    countUc: $('#count-uc'),
-    countN: $('#count-n'),
 
     // Modal elements
     modalOverlay: $('#modal-overlay'),
@@ -236,10 +265,23 @@
   async function fetchPackArticles() {
     // 21만 개의 고품질 서브컬쳐 데이터가 들어있는 조각 JSON 청크로부터 즉석 드로우
     if (offlineDb && offlineDb.length > 0) {
+      let pool = offlineDb;
+      
+      // 장르별 특화 팩 필터링 연동
+      if (currentPackType !== 'all') {
+        const targetGenre = PACK_TYPE_TO_GENRE[currentPackType];
+        const genreFiltered = offlineDb.filter(entry => entry.type === targetGenre);
+        if (genreFiltered.length >= PACK_SIZE) {
+          pool = genreFiltered;
+        } else {
+          console.warn(`Selected genre pack "${targetGenre}" has insufficient cards in current chunk (${genreFiltered.length}). Falling back to all mixed pool.`);
+        }
+      }
+
       const pack = [];
       for (let i = 0; i < PACK_SIZE; i++) {
-        const idx = Math.floor(Math.random() * offlineDb.length);
-        const entry = offlineDb[idx];
+        const idx = Math.floor(Math.random() * pool.length);
+        const entry = pool[idx];
         pack.push({
           title: entry.title,
           text: entry.text,
@@ -314,6 +356,15 @@
       // Sort pack: lower rarity first, highest rarity last (for dramatic reveal)
       currentPack.sort((a, b) => RARITY_CONFIG[a.rarity].order - RARITY_CONFIG[b.rarity].order);
 
+      // 극적인 등급 배치 알고리즘 (RNG Dramatic Sorting) 적용
+      // 85% 확률: 최고 등급 카드가 4번째(Index 3)에 오고, 2등 카드가 5번째(Index 4)에 오도록 스왑
+      // 15% 확률: 최고 등급 카드가 깜짝 반전으로 5번째(Index 4)에 그대로 유지
+      if (Math.random() < 0.85) {
+        const temp = currentPack[3];
+        currentPack[3] = currentPack[4];
+        currentPack[4] = temp;
+      }
+
       // Update stats
       stats.totalPulls += PACK_SIZE;
       saveStats();
@@ -367,6 +418,9 @@
 
   function buildPackCards() {
     dom.cardsRow.innerHTML = '';
+    
+    // 한번에 까기 컨트롤 표시
+    if (dom.deckControls) dom.deckControls.style.display = 'flex';
 
     currentPack.forEach((entry, index) => {
       const config = RARITY_CONFIG[entry.rarity];
@@ -376,6 +430,23 @@
       const mappedType = TYPE_LABELS[entry.type] || entry.type;
       const typeHtml = mappedType ? `<span class="pf-type-tag">${mappedType}</span>` : '';
 
+      // 1. 카드 슬롯Placeholder 생성
+      const slotEl = document.createElement('div');
+      slotEl.className = 'card-slot';
+      slotEl.dataset.slotIndex = index;
+
+      // 2. 3D 겹침 카드 Wrapper 생성
+      const cardWrapper = document.createElement('div');
+      cardWrapper.className = 'card-wrapper stacked';
+      
+      // 카드 더미의 회전각도 및 z-index 계산 (0번 카드가 가장 맨 위에 놓임)
+      const rot = (index - 2) * 2.5 + (Math.random() * 2 - 1);
+      const zIndex = 10 - index;
+      cardWrapper.style.setProperty('--stack-rot', `${rot}deg`);
+      cardWrapper.style.setProperty('--stack-z', zIndex);
+      cardWrapper.id = `card-wrapper-${index}`;
+
+      // 3. 실제 뒤집힐 팩 카드 생성
       const packCard = document.createElement('div');
       packCard.className = 'pack-card';
       packCard.dataset.index = index;
@@ -405,44 +476,76 @@
         </div>
       `;
 
-      // Click to reveal
-      packCard.addEventListener('click', () => revealCard(packCard, entry));
+      // 클릭 시 겹침 카드 비행 공개 혹은 디테일 모달 창 열기 분기
+      packCard.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (cardWrapper.classList.contains('stacked')) {
+          popAndRevealCard(index);
+        } else {
+          if (packCard.classList.contains('revealed')) {
+            openModal(entry);
+          }
+        }
+      });
 
-      dom.cardsRow.appendChild(packCard);
+      cardWrapper.appendChild(packCard);
+      slotEl.appendChild(cardWrapper);
+      dom.cardsRow.appendChild(slotEl);
     });
   }
 
-  function revealCard(cardEl, entry) {
-    if (cardEl.classList.contains('revealed')) {
-      // Already revealed → open modal
-      openModal(entry);
-      return;
-    }
+  function popAndRevealCard(index) {
+    const cardWrapper = $(`#card-wrapper-${index}`);
+    if (!cardWrapper || !cardWrapper.classList.contains('stacked')) return;
 
-    cardEl.classList.add('revealed');
+    const packCard = cardWrapper.querySelector('.pack-card');
+    const entry = currentPack[index];
+
+    // stacked 클래스 해제 -> 덱 중첩에서 빠져나와 각자의 슬롯으로 매끄럽게 비상(Fly) 이동!
+    cardWrapper.classList.remove('stacked');
+    cardWrapper.style.setProperty('--stack-z', '20'); // 비행 시 맨 앞으로 보정
+
+    // 3D 뒤집기 활성화
+    packCard.classList.add('revealed');
     revealedCount++;
 
     const config = RARITY_CONFIG[entry.rarity];
 
-    // Effects based on rarity
+    // 등급별 특수 임팩트 방출
     if (['ur', 'ssr', 'lg'].includes(entry.rarity)) {
       showRevealGlow(entry.rarity);
-      spawnParticlesAt(cardEl, entry.rarity, 35);
+      spawnParticlesAt(packCard, entry.rarity, 35);
       showToast(`✨ ${config.label} — ${entry.title}`);
     } else if (entry.rarity === 'ep' || entry.rarity === 'sr') {
       showRevealGlow(entry.rarity);
-      spawnParticlesAt(cardEl, entry.rarity, 20);
+      spawnParticlesAt(packCard, entry.rarity, 20);
       showToast(`💫 ${config.label} — ${entry.title}`);
     } else if (entry.rarity === 'r') {
-      spawnParticlesAt(cardEl, entry.rarity, 12);
+      spawnParticlesAt(packCard, entry.rarity, 12);
     }
 
     updateRevealCounter();
 
-    // All revealed?
+    // 5장 전부 다 깠는지 판별
     if (revealedCount >= PACK_SIZE) {
+      if (dom.deckControls) dom.deckControls.style.display = 'none';
       showPackSummary();
       dom.revealCounter.classList.remove('active');
+    }
+  }
+
+  async function revealAll() {
+    if (revealedCount >= PACK_SIZE) return;
+    
+    if (dom.deckControls) dom.deckControls.style.display = 'none';
+    
+    // 아직 안 까진 카드들을 순차적으로 눈부시게 비행 공개 (Staggered Delay)
+    for (let i = 0; i < PACK_SIZE; i++) {
+      const cardWrapper = $(`#card-wrapper-${i}`);
+      if (cardWrapper && cardWrapper.classList.contains('stacked')) {
+        popAndRevealCard(i);
+        await delay(150);
+      }
     }
   }
 
@@ -602,13 +705,20 @@
 
     let filtered = [...collection];
 
-    if (currentFilter !== 'all') {
-      filtered = filtered.filter(c => c.rarity === currentFilter);
+    // 1. 등급 다중 필터링 적용 (activeRarityFilters)
+    if (activeRarityFilters.length > 0 && !activeRarityFilters.includes('all')) {
+      filtered = filtered.filter(c => activeRarityFilters.includes(c.rarity));
     }
 
+    // 2. 장르 다중 필터링 적용 (activeGenreFilters)
+    if (activeGenreFilters.length > 0 && !activeGenreFilters.includes('all')) {
+      filtered = filtered.filter(c => activeGenreFilters.includes(c.type));
+    }
+
+    // 3. 정렬 적용
     switch (currentSort) {
-      case 'newest':    filtered.sort((a, b) => new Date(b.pulledAt) - new Date(a.pulledAt)); break;
-      case 'oldest':    filtered.sort((a, b) => new Date(a.pulledAt) - new Date(b.pulledAt)); break;
+      case 'newest':      filtered.sort((a, b) => new Date(b.pulledAt) - new Date(a.pulledAt)); break;
+      case 'oldest':      filtered.sort((a, b) => new Date(a.pulledAt) - new Date(b.pulledAt)); break;
       case 'rarity-desc': filtered.sort((a, b) => RARITY_CONFIG[b.rarity].order - RARITY_CONFIG[a.rarity].order); break;
       case 'rarity-asc':  filtered.sort((a, b) => RARITY_CONFIG[a.rarity].order - RARITY_CONFIG[b.rarity].order); break;
       case 'score-desc':
@@ -618,16 +728,39 @@
           return scoreB - scoreA;
         });
         break;
-      case 'title':     filtered.sort((a, b) => a.title.localeCompare(b.title, 'ko')); break;
+      case 'title':       filtered.sort((a, b) => a.title.localeCompare(b.title, 'ko')); break;
     }
 
+    // Empty state handling
     if (dom.collectionEmpty) {
       dom.collectionEmpty.style.display = filtered.length === 0 ? 'block' : 'none';
     }
 
-    filtered.forEach(entry => {
+    // 4. 페이지네이션 슬라이싱 연산
+    const totalPages = Math.ceil(filtered.length / CARDS_PER_PAGE) || 1;
+    if (currentCollectionPage > totalPages) currentCollectionPage = totalPages;
+    if (currentCollectionPage < 1) currentCollectionPage = 1;
+
+    const startIndex = (currentCollectionPage - 1) * CARDS_PER_PAGE;
+    const endIndex = startIndex + CARDS_PER_PAGE;
+    const pageCards = filtered.slice(startIndex, endIndex);
+
+    // 렌더링
+    pageCards.forEach(entry => {
       grid.appendChild(createMiniCard(entry));
     });
+
+    // 5. 페이지네이션 바 UI 업데이트
+    if (dom.paginationBar) {
+      if (filtered.length === 0) {
+        dom.paginationBar.style.display = 'none';
+      } else {
+        dom.paginationBar.style.display = 'flex';
+        dom.pagInfo.textContent = `Page ${currentCollectionPage} / ${totalPages} (${filtered.length}장)`;
+        dom.pagPrevBtn.disabled = currentCollectionPage === 1;
+        dom.pagNextBtn.disabled = currentCollectionPage === totalPages;
+      }
+    }
   }
 
   function createMiniCard(entry) {
@@ -754,6 +887,131 @@
 
     dom.pullBtn.addEventListener('click', pullPack);
 
+    // 3D Pack Selector Carousel Event Bindings
+    if (dom.carouselPrevBtn) {
+      dom.carouselPrevBtn.addEventListener('click', () => {
+        dom.packCarousel.scrollBy({ left: -200, behavior: 'smooth' });
+      });
+    }
+    if (dom.carouselNextBtn) {
+      dom.carouselNextBtn.addEventListener('click', () => {
+        dom.packCarousel.scrollBy({ left: 200, behavior: 'smooth' });
+      });
+    }
+
+    if (dom.packCarousel) {
+      const packItems = dom.packCarousel.querySelectorAll('.pack-item');
+      packItems.forEach(item => {
+        item.addEventListener('click', () => {
+          packItems.forEach(p => p.classList.toggle('active', p === item));
+          currentPackType = item.dataset.packType;
+          
+          // 팩 그라데이션 봉투 테마 갱신
+          if (dom.packEnvelope) {
+            dom.packEnvelope.className = `pack-envelope pack-theme-${currentPackType}`;
+          }
+          if (dom.packEnvelopeText) {
+            dom.packEnvelopeText.textContent = item.querySelector('.pack-cover-title').textContent;
+          }
+          
+          item.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+          showToast(`📦 ${item.querySelector('.pack-cover-title').textContent}이 선택되었습니다!`);
+        });
+      });
+    }
+
+    // 한번에 까기 이벤트 바인딩
+    if (dom.revealAllBtn) {
+      dom.revealAllBtn.addEventListener('click', revealAll);
+    }
+
+    // 등급 다중 필터링 바인딩
+    if (dom.filterPillsRarity) {
+      const pills = dom.filterPillsRarity.querySelectorAll('.filter-pill');
+      pills.forEach(pill => {
+        pill.addEventListener('click', () => {
+          const filter = pill.dataset.filter;
+          if (filter === 'all') {
+            activeRarityFilters = [];
+            pills.forEach(p => p.classList.toggle('active', p.dataset.filter === 'all'));
+          } else {
+            const allPill = Array.from(pills).find(p => p.dataset.filter === 'all');
+            if (allPill) allPill.classList.remove('active');
+            
+            if (activeRarityFilters.includes(filter)) {
+              activeRarityFilters = activeRarityFilters.filter(f => f !== filter);
+              pill.classList.remove('active');
+            } else {
+              activeRarityFilters.push(filter);
+              pill.classList.add('active');
+            }
+            
+            if (activeRarityFilters.length === 0) {
+              if (allPill) allPill.classList.add('active');
+            }
+          }
+          currentCollectionPage = 1;
+          renderCollection();
+        });
+      });
+    }
+
+    // 장르 다중 필터링 바인딩
+    if (dom.filterPillsGenre) {
+      const pills = dom.filterPillsGenre.querySelectorAll('.filter-pill');
+      pills.forEach(pill => {
+        pill.addEventListener('click', () => {
+          const genre = pill.dataset.genre;
+          if (genre === 'all') {
+            activeGenreFilters = [];
+            pills.forEach(p => p.classList.toggle('active', p.dataset.genre === 'all'));
+          } else {
+            const allPill = Array.from(pills).find(p => p.dataset.genre === 'all');
+            if (allPill) allPill.classList.remove('active');
+            
+            if (activeGenreFilters.includes(genre)) {
+              activeGenreFilters = activeGenreFilters.filter(g => g !== genre);
+              pill.classList.remove('active');
+            } else {
+              activeGenreFilters.push(genre);
+              pill.classList.add('active');
+            }
+            
+            if (activeGenreFilters.length === 0) {
+              if (allPill) allPill.classList.add('active');
+            }
+          }
+          currentCollectionPage = 1;
+          renderCollection();
+        });
+      });
+    }
+
+    // 페이지네이션 버튼 바인딩
+    if (dom.pagPrevBtn) {
+      dom.pagPrevBtn.addEventListener('click', () => {
+        if (currentCollectionPage > 1) {
+          currentCollectionPage--;
+          renderCollection();
+          const targetEl = dom.collectionGrid || $('.collection-header');
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      });
+    }
+
+    if (dom.pagNextBtn) {
+      dom.pagNextBtn.addEventListener('click', () => {
+        currentCollectionPage++;
+        renderCollection();
+        const targetEl = dom.collectionGrid || $('.collection-header');
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }
+
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Space' && !e.target.closest('input, textarea, select')) {
         e.preventDefault();
@@ -765,14 +1023,6 @@
       if (e.code === 'Escape') {
         closeModal();
       }
-    });
-
-    dom.filterPills.forEach(pill => {
-      pill.addEventListener('click', () => {
-        currentFilter = pill.dataset.filter;
-        dom.filterPills.forEach(p => p.classList.toggle('active', p === pill));
-        renderCollection();
-      });
     });
 
     dom.sortSelect.addEventListener('change', (e) => {

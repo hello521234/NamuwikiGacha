@@ -744,11 +744,274 @@ body::before {
 }
 
 /* ========================================
+   Booster Pack Selector Carousel & 3D Cards Stack Style
+   ======================================== */
+
+.pack-carousel-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 16px auto 24px;
+  width: 100%;
+  max-width: 900px;
+  user-select: none;
+}
+.pack-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 10px 4px;
+  width: 100%;
+  scrollbar-width: none; /* Firefox */
+}
+.pack-carousel::-webkit-scrollbar {
+  display: none; /* Safari/Chrome */
+}
+.pack-item {
+  flex: 0 0 150px;
+  cursor: pointer;
+  perspective: 1000px;
+  transition: all var(--transition-normal);
+}
+.pack-cover {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  border-radius: var(--radius-md);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: var(--bg-glass);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  transition: all var(--transition-normal);
+  overflow: hidden;
+}
+.pack-cover::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+  z-index: 1;
+}
+
+/* Hover and Active states for Pack Carousel */
+.pack-item:hover {
+  transform: translateY(-6px) scale(1.03);
+}
+.pack-item.active .pack-cover {
+  border-color: var(--accent-secondary);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+  transform: scale(1.05);
+  background: rgba(168, 85, 247, 0.08);
+}
+.pack-cover-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+.pack-cover-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+.pack-cover-desc {
+  font-size: 9px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+/* Pack-specific Themes */
+.pack-theme-all { background: linear-gradient(145deg, #1e1b4b, #0f0e26); }
+.pack-theme-music { background: linear-gradient(145deg, #063940, #041f23); }
+.pack-theme-game { background: linear-gradient(145deg, #450a0a, #200505); }
+.pack-theme-comic { background: linear-gradient(145deg, #064e3b, #03271d); }
+.pack-theme-anime { background: linear-gradient(145deg, #4d1d49, #290f26); }
+.pack-theme-novel { background: linear-gradient(145deg, #451a03, #220c02); }
+
+.pack-item.active .pack-theme-all { border-color: #6366f1; box-shadow: 0 0 25px rgba(99, 102, 241, 0.35); }
+.pack-item.active .pack-theme-music { border-color: #06b6d4; box-shadow: 0 0 25px rgba(6, 182, 212, 0.35); }
+.pack-item.active .pack-theme-game { border-color: #e11d48; box-shadow: 0 0 25px rgba(225, 29, 72, 0.35); }
+.pack-item.active .pack-theme-comic { border-color: #10b981; box-shadow: 0 0 25px rgba(16, 185, 129, 0.35); }
+.pack-item.active .pack-theme-anime { border-color: #ec4899; box-shadow: 0 0 25px rgba(236, 72, 153, 0.35); }
+.pack-item.active .pack-theme-novel { border-color: #f97316; box-shadow: 0 0 25px rgba(249, 115, 22, 0.35); }
+
+.carousel-btn {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.carousel-btn:hover {
+  background: var(--accent-gradient);
+  border-color: transparent;
+  transform: scale(1.1);
+}
+
+/* 3D Stacked Card Design & Fly Animation */
+.cards-row {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  min-height: 290px;
+  width: 100%;
+  margin-top: 16px;
+}
+.card-slot {
+  width: 170px;
+  height: 238px;
+  border-radius: var(--radius-md);
+  border: 2px dashed rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.01);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.2);
+}
+
+/* The stack card itself */
+.card-wrapper.stacked {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) rotate(var(--stack-rot)) scale(0.95) !important;
+  z-index: var(--stack-z) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+  transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275), left 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), z-index 0.3s;
+}
+.card-wrapper.stacked:hover {
+  transform: translate(-50%, -55%) rotate(0deg) scale(1.02) !important;
+  z-index: 100 !important;
+}
+
+/* Card reveal overlay buttons */
+.deck-controls {
+  display: flex;
+  justify-content: center;
+  margin: -8px auto 16px;
+}
+.deck-ctrl-btn {
+  background: var(--bg-glass);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  color: var(--accent-secondary);
+  font-family: inherit;
+  font-weight: 700;
+  padding: 8px 24px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.15);
+  transition: all var(--transition-fast);
+}
+.deck-ctrl-btn:hover {
+  background: var(--accent-gradient);
+  color: white;
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
+}
+
+/* Multi-select filter panel styling */
+.filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+  backdrop-filter: blur(10px);
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.filter-row-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  min-width: 110px;
+}
+.filter-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Pagination Bar styling */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin: 24px auto;
+  padding: 10px 24px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-medium);
+  border-radius: 30px;
+  width: fit-content;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.pag-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.pag-btn:hover:not(:disabled) {
+  background: var(--accent-gradient);
+  border-color: transparent;
+  color: white;
+}
+.pag-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.pag-info {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ========================================
    Responsive
    ======================================== */
 @media (max-width: 900px) {
   .cards-row { flex-wrap: wrap; }
   .pack-card { width: 140px; height: 195px; }
+  .card-slot { width: 140px; height: 195px; }
+  .pack-carousel-container { gap: 8px; }
+  .pack-item { flex: 0 0 120px; }
+  .pack-cover { height: 160px; padding: 10px; }
+  .pack-cover-icon { font-size: 24px; }
+  .pack-cover-title { font-size: 11px; }
 }
 @media (max-width: 768px) {
   .header-inner { flex-direction: column; gap: 8px; }
@@ -758,6 +1021,8 @@ body::before {
   .main-content { padding-left: 16px; padding-right: 16px; }
   .gacha-title { font-size: 28px; }
   .pack-card { width: 120px; height: 168px; }
+  .card-slot { width: 120px; height: 168px; }
+  .cards-row { min-height: 200px; gap: 8px; }
   .pf-header { padding: 10px 10px 4px; }
   .pf-title { font-size: 11px; }
   .pf-rarity { font-size: 8px; }
@@ -776,9 +1041,12 @@ body::before {
   .pull-btn { padding: 16px 40px; font-size: 16px; }
   .stats-dashboard { grid-template-columns: repeat(3, 1fr); }
   .pack-card { width: 100px; height: 140px; }
+  .card-slot { width: 100px; height: 140px; }
+  .cards-row { gap: 4px; }
   .pf-title { font-size: 10px; -webkit-line-clamp: 1; }
   .pf-excerpt { -webkit-line-clamp: 2; }
   .pf-footer { display: none; }
-  .cards-row { gap: 5px; }
+  .filter-panel { padding: 10px 12px; }
+  .filter-row-label { min-width: 100%; margin-bottom: 4px; }
   .filter-pill { padding: 4px 8px; font-size: 10px; }
 }

@@ -36,13 +36,72 @@
         <h1 class="gacha-title"><span class="gradient-text">서브컬쳐 ACG</span> 가챠</h1>
         <p class="gacha-subtitle">애니 · 만화 · 게임 · 버튜버 전문 도감 · 8단계 등급 복합 스코어</p>
 
+        <!-- 3D Booster Pack Selector Carousel -->
+        <div class="pack-carousel-container">
+          <button class="carousel-btn prev-btn" id="carousel-prev-btn">◀</button>
+          <div class="pack-carousel" id="pack-carousel">
+            <div class="pack-item active" data-pack-type="all">
+              <div class="pack-cover pack-theme-all">
+                <div class="pack-cover-sparkles"></div>
+                <div class="pack-cover-icon">🌌</div>
+                <div class="pack-cover-title">통합 프리미엄 팩</div>
+                <div class="pack-cover-desc">전 장르 올라운드 믹스</div>
+              </div>
+            </div>
+            <div class="pack-item" data-pack-type="music">
+              <div class="pack-cover pack-theme-music">
+                <div class="pack-cover-sparkles"></div>
+                <div class="pack-cover-icon">🎵</div>
+                <div class="pack-cover-title">보컬로이드/동인음악 팩</div>
+                <div class="pack-cover-desc">리듬 & 서브컬쳐 멜로디</div>
+              </div>
+            </div>
+            <div class="pack-item" data-pack-type="game">
+              <div class="pack-cover pack-theme-game">
+                <div class="pack-cover-sparkles"></div>
+                <div class="pack-cover-icon">🎮</div>
+                <div class="pack-cover-title">게임 월드 팩</div>
+                <div class="pack-cover-desc">RPG, 모바일, 전략 게임</div>
+              </div>
+            </div>
+            <div class="pack-item" data-pack-type="comic">
+              <div class="pack-cover pack-theme-comic">
+                <div class="pack-cover-sparkles"></div>
+                <div class="pack-cover-icon">💬</div>
+                <div class="pack-cover-title">만화/웹툰 팩</div>
+                <div class="pack-cover-desc">인기 만화 & 웹코믹스</div>
+              </div>
+            </div>
+            <div class="pack-item" data-pack-type="anime">
+              <div class="pack-cover pack-theme-anime">
+                <div class="pack-cover-sparkles"></div>
+                <div class="pack-cover-icon">✨</div>
+                <div class="pack-cover-title">애니메이션 팩</div>
+                <div class="pack-cover-desc">TVA, 극장판 극상 비주얼</div>
+              </div>
+            </div>
+            <div class="pack-item" data-pack-type="novel">
+              <div class="pack-cover pack-theme-novel">
+                <div class="pack-cover-sparkles"></div>
+                <div class="pack-cover-icon">📖</div>
+                <div class="pack-cover-title">라이트노벨 팩</div>
+                <div class="pack-cover-desc">이세계 판타지 원작 소설</div>
+              </div>
+            </div>
+          </div>
+          <button class="carousel-btn next-btn" id="carousel-next-btn">▶</button>
+        </div>
+
         <div class="pack-stage" id="pack-stage">
-          <div class="pack-envelope" id="pack-envelope">
-            <div class="pack-envelope-icon">🎴</div>
-            <div class="pack-envelope-text">ACG BOOSTER PACK</div>
+          <!-- Booster Pack Envelope (Style varies by chosen pack) -->
+          <div class="pack-envelope pack-theme-all" id="pack-envelope">
+            <div class="pack-envelope-icon">🌌</div>
+            <div class="pack-envelope-text" id="pack-envelope-text">통합 프리미엄 팩</div>
             <div class="pack-envelope-sub">카드 5장 수록 · 클릭하여 개봉</div>
             <div class="pack-envelope-bottom-crimp"></div>
           </div>
+          
+          <!-- Cards Stage: cards-row serves as the final flex slot container. -->
           <div class="cards-row" id="cards-row"></div>
         </div>
 
@@ -52,6 +111,11 @@
         </div>
 
         <div class="reveal-counter" id="reveal-counter">카드를 클릭하여 공개하세요! (0/5)</div>
+
+        <!-- deck-controls for Reveal All -->
+        <div class="deck-controls" id="deck-controls" style="display: none;">
+          <button class="deck-ctrl-btn reveal-all-btn" id="reveal-all-btn">⚡ 한번에 까기</button>
+        </div>
 
         <div class="pull-section">
           <button class="pull-btn" id="pull-btn">
@@ -69,17 +133,6 @@
       <div class="collection-header">
         <h1 class="collection-title">📚 내 컬렉션</h1>
         <div class="collection-controls">
-          <div class="filter-pills" id="filter-pills">
-            <button class="filter-pill active" data-filter="all">전체 <span class="count" id="count-all">0</span></button>
-            <button class="filter-pill" data-filter="lg">LG <span class="count" id="count-lg">0</span></button>
-            <button class="filter-pill" data-filter="ssr">SSR <span class="count" id="count-ssr">0</span></button>
-            <button class="filter-pill" data-filter="ur">UR <span class="count" id="count-ur">0</span></button>
-            <button class="filter-pill" data-filter="ep">EP <span class="count" id="count-ep">0</span></button>
-            <button class="filter-pill" data-filter="sr">SR <span class="count" id="count-sr">0</span></button>
-            <button class="filter-pill" data-filter="r">R <span class="count" id="count-r">0</span></button>
-            <button class="filter-pill" data-filter="uc">UC <span class="count" id="count-uc">0</span></button>
-            <button class="filter-pill" data-filter="n">N <span class="count" id="count-n">0</span></button>
-          </div>
           <select class="sort-select" id="sort-select">
             <option value="newest">최신순</option>
             <option value="oldest">오래된순</option>
@@ -92,6 +145,35 @@
           <button class="backup-btn export" id="export-btn" title="내 컬렉션 파일로 저장">💾 백업</button>
           <button class="backup-btn import" id="import-btn" title="컬렉션 파일 불러오기">📂 복구</button>
           <input type="file" id="import-file-input" style="display: none;" accept=".json">
+        </div>
+      </div>
+
+      <!-- 다중 필터링 헤더 컨트롤 판넬 -->
+      <div class="filter-panel">
+        <div class="filter-row">
+          <span class="filter-row-label">등급 필터 (다중 선택):</span>
+          <div class="filter-pills" id="filter-pills-rarity">
+            <button class="filter-pill active" data-filter="all">전체</button>
+            <button class="filter-pill" data-filter="lg">LG <span class="count" id="count-lg">0</span></button>
+            <button class="filter-pill" data-filter="ssr">SSR <span class="count" id="count-ssr">0</span></button>
+            <button class="filter-pill" data-filter="ur">UR <span class="count" id="count-ur">0</span></button>
+            <button class="filter-pill" data-filter="ep">EP <span class="count" id="count-ep">0</span></button>
+            <button class="filter-pill" data-filter="sr">SR <span class="count" id="count-sr">0</span></button>
+            <button class="filter-pill" data-filter="r">R <span class="count" id="count-r">0</span></button>
+            <button class="filter-pill" data-filter="uc">UC <span class="count" id="count-uc">0</span></button>
+            <button class="filter-pill" data-filter="n">N <span class="count" id="count-n">0</span></button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-row-label">장르 필터 (다중 선택):</span>
+          <div class="filter-pills" id="filter-pills-genre">
+            <button class="filter-pill active" data-genre="all">전체</button>
+            <button class="filter-pill" data-genre="보컬로이드/동인음악">🎵 보컬/동인음악</button>
+            <button class="filter-pill" data-genre="게임">🎮 게임</button>
+            <button class="filter-pill" data-genre="만화/웹툰">💬 만화/웹툰</button>
+            <button class="filter-pill" data-genre="애니메이션">✨ 애니메이션</button>
+            <button class="filter-pill" data-genre="라이트노벨">📖 라노벨</button>
+          </div>
         </div>
       </div>
 
@@ -113,6 +195,13 @@
           <div class="collection-empty-text">아직 뽑은 카드가 없습니다</div>
           <div class="collection-empty-sub">가챠 탭에서 카드팩을 뽑아보세요!</div>
         </div>
+      </div>
+
+      <!-- Glassmorphic Pagination Bar -->
+      <div class="pagination-bar" id="pagination-bar" style="display: none;">
+        <button class="pag-btn prev" id="pag-prev-btn">◀ 이전</button>
+        <span class="pag-info" id="pag-info">Page 1 / 1 (0장)</span>
+        <button class="pag-btn next" id="pag-next-btn">다음 ▶</button>
       </div>
     </section>
 
