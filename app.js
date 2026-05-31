@@ -51,6 +51,7 @@
   // Pack state
   let currentPack = [];      // array of card entries for current pack
   let revealedCount = 0;
+  let activeResultIndex = 0; // 결과 감상 캐러셀에서 활성화된 카드 인덱스
 
   // ============ DOM ============
   const $ = (sel) => document.querySelector(sel);
@@ -82,6 +83,11 @@
     // Deck stack controls
     deckControls: $('#deck-controls'),
     revealAllBtn: $('#reveal-all-btn'),
+
+    // 결과 캐러셀 네비게이션 및 미니 썸네일
+    resultPrevBtn: $('#result-prev-btn'),
+    resultNextBtn: $('#result-next-btn'),
+    miniThumbBar: $('#mini-thumb-bar'),
 
     // Multi-select filters
     filterPillsRarity: $('#filter-pills-rarity'),
@@ -314,6 +320,11 @@
     dom.cardsRow.classList.remove('active');
     dom.packSummary.classList.remove('active');
     dom.revealCounter.classList.remove('active');
+    
+    // Hide navigation and thumb bar from previous pull
+    if (dom.resultPrevBtn) dom.resultPrevBtn.style.display = 'none';
+    if (dom.resultNextBtn) dom.resultNextBtn.style.display = 'none';
+    if (dom.miniThumbBar) dom.miniThumbBar.style.display = 'none';
 
     // Show pack envelope
     dom.packEnvelope.style.display = 'flex';
@@ -530,7 +541,7 @@
     const cardWrapper = $(`#card-wrapper-${index}`);
     if (!cardWrapper || cardWrapper.classList.contains('swiped')) return;
 
-    // 카드를 위로 날리고 fade-out하는 swiped 클래스 추가
+    // 카드를 옆으로 밀며 fade-out 시켜 넘기기
     cardWrapper.classList.add('swiped');
 
     // 5장이 전부 다 스위프되었는지 판별
@@ -538,52 +549,143 @@
     const swipedCount = wrappers.filter(w => w.classList.contains('swiped')).length;
 
     if (swipedCount >= PACK_SIZE) {
-      // 5장 모두 넘겼을 때! 3D 카드 더미를 즉각 해제하고 1열 쫙 나열!
+      // 5장 카드 모두 개봉 & 넘기기 완료 시 단일 결과 캐러셀 모드로 즉각 전환!
       setTimeout(() => {
-        dom.cardsRow.classList.remove('stack-mode');
-        wrappers.forEach(w => w.classList.remove('swiped'));
+        dom.cardsRow.className = 'cards-row carousel-mode active';
         
+        // swiped 클래스 해제하고 0번 카드만 active 처리
+        wrappers.forEach((w, idx) => {
+          w.classList.remove('swiped');
+          w.classList.toggle('active', idx === 0);
+        });
+
+        activeResultIndex = 0;
+
+        // 한번에 까기 버튼 숨김
         if (dom.deckControls) dom.deckControls.style.display = 'none';
+
+        // 화살표 네비게이션 및 미니 썸네일 인디케이터 바 출력!
+        if (dom.resultPrevBtn) dom.resultPrevBtn.style.display = 'flex';
+        if (dom.resultNextBtn) dom.resultNextBtn.style.display = 'flex';
+        if (dom.miniThumbBar) {
+          dom.miniThumbBar.style.display = 'flex';
+          buildMiniThumbnails();
+        }
+
         showPackSummary();
         dom.revealCounter.classList.remove('active');
-      }, 500); // swipe 트랜지션 타임과 연동
+      }, 500); // 트랜지션 타임 맞춤
     }
   }
 
   async function revealAll() {
     if (revealedCount >= PACK_SIZE) return;
-    
-    if (dom.deckControls) dom.deckControls.style.display = 'none';
-    
-    // 겹침 스택 상태를 전격 해제하여 즉석 1열 배치!
-    dom.cardsRow.classList.remove('stack-mode');
-    
-    const wrappers = dom.cardsRow.querySelectorAll('.card-wrapper');
-    wrappers.forEach(w => w.classList.remove('swiped'));
 
-    // 5장 카드를 1열 정렬 상태에서 순차적으로 정교하게 뒤집기 (Staggered Reveal)
+    if (dom.deckControls) dom.deckControls.style.display = 'none';
+
+    // 스택 상태에서 결과 캐러셀 상태로 전격 전환
+    dom.cardsRow.className = 'cards-row carousel-mode active';
+
+    const wrappers = dom.cardsRow.querySelectorAll('.card-wrapper');
+    wrappers.forEach(w => {
+      w.classList.remove('swiped');
+      w.classList.remove('active');
+    });
+
+    // 화살표 및 미니 썸네일 바 출력
+    if (dom.resultPrevBtn) dom.resultPrevBtn.style.display = 'flex';
+    if (dom.resultNextBtn) dom.resultNextBtn.style.display = 'flex';
+    if (dom.miniThumbBar) {
+      dom.miniThumbBar.style.display = 'flex';
+      buildMiniThumbnails();
+    }
+
+    // 1장씩 극적이고 순차적으로 뒤집으며 보여주는 럭셔리 슬라이드쇼 오픈 연출
     for (let i = 0; i < PACK_SIZE; i++) {
-      const cardWrapper = $(`#card-wrapper-${i}`);
+      showResultCard(i);
+
+      const cardWrapper = wrappers[i];
       if (cardWrapper) {
         const packCard = cardWrapper.querySelector('.pack-card');
         if (packCard && !packCard.classList.contains('revealed')) {
           const entry = currentPack[i];
           packCard.classList.add('revealed');
           revealedCount++;
-          
+
           const config = RARITY_CONFIG[entry.rarity];
           if (['ur', 'ssr', 'lg'].includes(entry.rarity)) {
-            spawnParticlesAt(packCard, entry.rarity, 20);
+            showRevealGlow(entry.rarity);
+            spawnParticlesAt(packCard, entry.rarity, 25);
+            showToast(`✨ ${config.label} — ${entry.title}`);
+          } else if (['ep', 'sr'].includes(entry.rarity)) {
+            showRevealGlow(entry.rarity);
+            spawnParticlesAt(packCard, entry.rarity, 15);
+          } else if (entry.rarity === 'r') {
+            spawnParticlesAt(packCard, entry.rarity, 10);
           }
-          
+
+          // 뒤집힌 썸네일 상태 갱신
+          buildMiniThumbnails();
+
           updateRevealCounter();
-          await delay(150);
+          await delay(600); // 0.6초간 여유를 주어 감상 및 이펙트 극대화
         }
       }
     }
 
+    // 모든 슬라이드쇼가 종료되면 0번 카드(최저 등급)로 리셋하여 감상 대기
+    showResultCard(0);
+
     showPackSummary();
     dom.revealCounter.classList.remove('active');
+  }
+
+  function buildMiniThumbnails() {
+    if (!dom.miniThumbBar) return;
+    dom.miniThumbBar.innerHTML = '';
+
+    currentPack.forEach((entry, index) => {
+      const config = RARITY_CONFIG[entry.rarity];
+      const cardWrapper = $(`#card-wrapper-${index}`);
+      const isRevealed = cardWrapper && cardWrapper.querySelector('.pack-card').classList.contains('revealed');
+
+      const thumb = document.createElement('div');
+      thumb.className = `mini-thumb-item ${index === activeResultIndex ? 'active' : ''}`;
+      // 이미 뒤집힌(revealed) 상태일 때만 등급 썸네일에 고유의 Rarity 색상을 켜줌 (은폐 긴장감 극대화)
+      if (isRevealed) {
+        thumb.dataset.rarity = entry.rarity;
+      }
+      thumb.dataset.index = index;
+
+      thumb.innerHTML = `
+        <span class="thumb-idx">#${index + 1}</span>
+        <span class="thumb-rarity">${isRevealed ? entry.rarity.toUpperCase() : '?'}</span>
+      `;
+
+      thumb.addEventListener('click', () => {
+        // 이미 결과 모드이고 뒤집힌 상태라면 해당 카드로 전환
+        showResultCard(index);
+      });
+
+      dom.miniThumbBar.appendChild(thumb);
+    });
+  }
+
+  function showResultCard(index) {
+    if (index < 0 || index >= PACK_SIZE) return;
+    activeResultIndex = index;
+
+    const wrappers = dom.cardsRow.querySelectorAll('.card-wrapper');
+    wrappers.forEach((w, idx) => {
+      w.classList.toggle('active', idx === activeResultIndex);
+    });
+
+    if (dom.miniThumbBar) {
+      const thumbs = dom.miniThumbBar.querySelectorAll('.mini-thumb-item');
+      thumbs.forEach((t, idx) => {
+        t.classList.toggle('active', idx === activeResultIndex);
+      });
+    }
   }
 
   function updateRevealCounter() {
@@ -960,6 +1062,22 @@
     // 한번에 까기 이벤트 바인딩
     if (dom.revealAllBtn) {
       dom.revealAllBtn.addEventListener('click', revealAll);
+    }
+
+    // 결과 감상 캐러셀 네비게이션 화살표 바인딩
+    if (dom.resultPrevBtn) {
+      dom.resultPrevBtn.addEventListener('click', () => {
+        let prevIdx = activeResultIndex - 1;
+        if (prevIdx < 0) prevIdx = PACK_SIZE - 1;
+        showResultCard(prevIdx);
+      });
+    }
+    if (dom.resultNextBtn) {
+      dom.resultNextBtn.addEventListener('click', () => {
+        let nextIdx = activeResultIndex + 1;
+        if (nextIdx >= PACK_SIZE) nextIdx = 0;
+        showResultCard(nextIdx);
+      });
     }
 
     // 등급 다중 필터링 바인딩

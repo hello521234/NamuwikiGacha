@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="서브컬쳐 ACG 가챠 - 애니, 만화, 게임, 버튜버 랜덤 나무위키 문서를 카드팩으로 뽑아 나만의 ACG 컬렉션을 완성하세요! 8단계 등급 복합 스코어 시스템.">
   <title>ACG 가챠 | 서브컬쳐 나무위키 카드팩 뽑기</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=5.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎴</text></svg>">
 </head>
 <body>
@@ -102,8 +102,13 @@
           </div>
           
           <!-- Cards Stage: cards-row serves as the final flex slot container. -->
+          <button class="result-nav-btn prev" id="result-prev-btn" style="display: none;" title="이전 카드">◀</button>
           <div class="cards-row" id="cards-row"></div>
+          <button class="result-nav-btn next" id="result-next-btn" style="display: none;" title="다음 카드">▶</button>
         </div>
+
+        <!-- 5-Slot Mini Thumbnail Bar -->
+        <div class="mini-thumb-bar" id="mini-thumb-bar" style="display: none;"></div>
 
         <div class="pack-summary" id="pack-summary">
           <div class="pack-summary-text">이번 팩 결과</div>
@@ -251,6 +256,6 @@
   <div class="particles-container" id="particles-container"></div>
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="app.js?v=4.0"></script>
+  <script src="app.js?v=5.0"></script>
 </body>
 </html>
