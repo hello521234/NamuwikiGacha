@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="나무위키 가챠 - 랜덤 나무위키 문서를 카드팩으로 뽑아 컬렉션을 완성하세요! 8단계 등급 시스템.">
+  <title>나무위키 가챠 | NamuwikiGacha</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎴</text></svg>">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header" id="header">
+    <div class="header-inner">
+      <a href="#" class="logo" id="logo-home">
+        <div class="logo-icon">N</div>
+        <div class="logo-text"><span>나무위키</span> 가챠</div>
+      </a>
+      <nav class="nav-tabs" id="nav-tabs">
+        <button class="nav-tab active" data-page="gacha" id="tab-gacha">🎴 뽑기</button>
+        <button class="nav-tab" data-page="collection" id="tab-collection">📚 컬렉션</button>
+      </nav>
+      <div class="stats-bar" id="stats-bar">
+        <div class="stat-item">총 뽑기 <span class="stat-value" id="total-pulls">0</span></div>
+        <div class="stat-item">컬렉션 <span class="stat-value" id="total-collection">0</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+
+    <!-- Page: Gacha -->
+    <section class="page active" id="page-gacha">
+      <div class="gacha-section">
+        <h1 class="gacha-title"><span class="gradient-text">나무위키</span> 가챠</h1>
+        <p class="gacha-subtitle">867,024개 문서 · 8단계 등급 · 글자 수 + 기여자 수 복합 스코어</p>
+
+        <div class="pack-stage" id="pack-stage">
+          <div class="pack-envelope" id="pack-envelope">
+            <div class="pack-envelope-icon">🎴</div>
+            <div class="pack-envelope-text">나무위키 BOOSTER</div>
+            <div class="pack-envelope-sub">카드 5장 수록 · 클릭하여 개봉</div>
+            <div class="pack-envelope-bottom-crimp"></div>
+          </div>
+          <div class="cards-row" id="cards-row"></div>
+        </div>
+
+        <div class="pack-summary" id="pack-summary">
+          <div class="pack-summary-text">이번 팩 결과</div>
+          <div class="pack-summary-rarities" id="pack-summary-rarities"></div>
+        </div>
+
+        <div class="reveal-counter" id="reveal-counter">카드를 클릭하여 공개하세요! (0/5)</div>
+
+        <div class="dataset-selector-container">
+          <label for="dataset-select">🌌 카드팩 테마:</label>
+          <select id="dataset-select" class="dataset-select">
+            <option value="acg" selected>🎮 서브컬쳐 (애니/게임/만화)</option>
+            <option value="full">🌐 전체 나무위키 (86만 문서)</option>
+          </select>
+        </div>
+
+        <div class="pull-section">
+          <button class="pull-btn" id="pull-btn">
+            <span class="btn-text">🎲 카드팩 뽑기!</span>
+            <div class="spinner"></div>
+          </button>
+          <div class="pull-cost">무료 · 무제한 · 5장/팩</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Page: Collection -->
+    <section class="page" id="page-collection">
+      <div class="collection-header">
+        <h1 class="collection-title">📚 내 컬렉션</h1>
+        <div class="collection-controls">
+          <div class="filter-pills" id="filter-pills">
+            <button class="filter-pill active" data-filter="all">전체 <span class="count" id="count-all">0</span></button>
+            <button class="filter-pill" data-filter="lg">LG <span class="count" id="count-lg">0</span></button>
+            <button class="filter-pill" data-filter="ssr">SSR <span class="count" id="count-ssr">0</span></button>
+            <button class="filter-pill" data-filter="ur">UR <span class="count" id="count-ur">0</span></button>
+            <button class="filter-pill" data-filter="ep">EP <span class="count" id="count-ep">0</span></button>
+            <button class="filter-pill" data-filter="sr">SR <span class="count" id="count-sr">0</span></button>
+            <button class="filter-pill" data-filter="r">R <span class="count" id="count-r">0</span></button>
+            <button class="filter-pill" data-filter="uc">UC <span class="count" id="count-uc">0</span></button>
+            <button class="filter-pill" data-filter="n">N <span class="count" id="count-n">0</span></button>
+          </div>
+          <select class="sort-select" id="sort-select">
+            <option value="newest">최신순</option>
+            <option value="oldest">오래된순</option>
+            <option value="rarity-desc">등급 높은순</option>
+            <option value="rarity-asc">등급 낮은순</option>
+            <option value="score-desc">스코어 높은순</option>
+            <option value="title">이름순</option>
+          </select>
+          <button class="clear-btn" id="clear-btn">🗑 초기화</button>
+          <button class="backup-btn export" id="export-btn" title="내 컬렉션 파일로 저장">💾 백업</button>
+          <button class="backup-btn import" id="import-btn" title="컬렉션 파일 불러오기">📂 복구</button>
+          <input type="file" id="import-file-input" style="display: none;" accept=".json">
+        </div>
+      </div>
+
+      <div class="stats-dashboard" id="stats-dashboard">
+        <div class="stat-card total"><div class="stat-number" id="stat-total">0</div><div class="stat-label">총 뽑기</div></div>
+        <div class="stat-card lg"><div class="stat-number" id="stat-lg">0</div><div class="stat-label">★ LG</div></div>
+        <div class="stat-card ssr"><div class="stat-number" id="stat-ssr">0</div><div class="stat-label">SSR</div></div>
+        <div class="stat-card ur"><div class="stat-number" id="stat-ur">0</div><div class="stat-label">UR</div></div>
+        <div class="stat-card ep"><div class="stat-number" id="stat-ep">0</div><div class="stat-label">EP</div></div>
+        <div class="stat-card sr"><div class="stat-number" id="stat-sr">0</div><div class="stat-label">SR</div></div>
+        <div class="stat-card r"><div class="stat-number" id="stat-r">0</div><div class="stat-label">R</div></div>
+        <div class="stat-card uc"><div class="stat-number" id="stat-uc">0</div><div class="stat-label">UC</div></div>
+        <div class="stat-card n"><div class="stat-number" id="stat-n">0</div><div class="stat-label">N</div></div>
+      </div>
+
+      <div class="collection-grid" id="collection-grid">
+        <div class="collection-empty" id="collection-empty">
+          <div class="collection-empty-icon">📭</div>
+          <div class="collection-empty-text">아직 뽑은 카드가 없습니다</div>
+          <div class="collection-empty-sub">가챠 탭에서 카드팩을 뽑아보세요!</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-content" id="modal-content">
+      <button class="modal-close" id="modal-close">✕</button>
+      <div class="modal-header">
+        <div class="modal-rarity-badge" id="modal-rarity-badge"></div>
+        <h2 class="modal-title" id="modal-title"></h2>
+      </div>
+      <div class="modal-body">
+        <div class="modal-text" id="modal-text"></div>
+        <div class="modal-info" id="modal-info">
+          <div class="modal-info-row">
+            <span class="modal-info-label">📏 글자 수</span>
+            <span id="modal-length"></span>
+          </div>
+          <div class="modal-info-row">
+            <span class="modal-info-label">👥 기여자</span>
+            <span id="modal-contributors"></span>
+          </div>
+          <div class="modal-info-row" id="modal-type-row" style="display: none;">
+            <span class="modal-info-label">🏷️ 카테고리</span>
+            <span id="modal-type"></span>
+          </div>
+          <div class="modal-score-bar">
+            <span class="modal-score-bar-label">⚡ 스코어</span>
+            <div class="modal-score-track"><div class="modal-score-fill" id="modal-score-fill"></div></div>
+            <span class="modal-score-value" id="modal-score-value"></span>
+          </div>
+          <div class="modal-info-row">
+            <span class="modal-info-label">📅 뽑은 날짜</span>
+            <span id="modal-date"></span>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <a class="modal-action-btn primary" id="modal-namu-link" href="#" target="_blank" rel="noopener">🌳 나무위키에서 보기</a>
+          <button class="modal-action-btn" id="modal-delete-btn">🗑 삭제</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="particles-container" id="particles-container"></div>
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
