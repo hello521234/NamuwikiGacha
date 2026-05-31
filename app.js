@@ -1146,6 +1146,7 @@
           
           item.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
           showToast(`📦 ${item.querySelector('.pack-cover-title').textContent}이 선택되었습니다!`);
+          resetGachaStage();
         });
       });
     }
