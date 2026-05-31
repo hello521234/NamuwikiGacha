@@ -19,10 +19,10 @@
     n:   { name: 'Normal',    stars: '★',         minScore: 0,       label: '★ Normal',         order: 1 },
     uc:  { name: 'Uncommon',  stars: '★★',       minScore: 2000,    label: '★★ Uncommon',     order: 2 },
     r:   { name: 'Rare',      stars: '★★★',     minScore: 6000,    label: '★★★ Rare',       order: 3 },
-    sr:  { name: 'Super Rare',stars: '★★★★',    minScore: 15000,   label: '★★★★ Super Rare', order: 4 },
-    ep:  { name: 'Epic',      stars: '★★★★★',   minScore: 30000,   label: '★★★★★ Epic',       order: 5 },
-    ur:  { name: 'Ultra Rare',stars: '★★★★★★',  minScore: 60000,   label: '★★★★★★ Ultra Rare',order: 6 },
-    ssr: { name: 'SSR',       stars: '★★★★★★★', minScore: 120000,  label: '★★★★★★★ SSR',      order: 7 },
+    ep:  { name: 'Epic',      stars: '★★★★',     minScore: 15000,   label: '★★★★ Epic',       order: 4 },
+    sr:  { name: 'Super Rare',stars: '★★★★★',   minScore: 30000,   label: '★★★★★ Super Rare', order: 5 },
+    ssr: { name: 'SSR',       stars: '★★★★★★',  minScore: 60000,   label: '★★★★★★ SSR',      order: 6 },
+    ur:  { name: 'Ultra Rare',stars: '★★★★★★★', minScore: 120000,  label: '★★★★★★★ Ultra Rare',order: 7 },
     lg:  { name: 'Legendary', stars: '★★★★★★★★',minScore: 250000,  label: '★★★★★★★★ Legendary',order: 8 }
   };
 
@@ -112,10 +112,13 @@
 
     // Collection Filters Count (v3)
     countLg: $('#count-lg'),
-    countSsr: $('#count-ssr'),
     countUr: $('#count-ur'),
-    countEp: $('#count-ep'),
+    countSsr: $('#count-ssr'),
     countSr: $('#count-sr'),
+    countEp: $('#count-ep'),
+    countR: $('#count-r'),
+    countUc: $('#count-uc'),
+    countN: $('#count-n'),
 
     // Modal elements
     modalOverlay: $('#modal-overlay'),
@@ -209,10 +212,10 @@
   // ============ Rarity ============
   function getRarity(score) {
     if (score >= 250000) return 'lg';
-    if (score >= 120000) return 'ssr';
-    if (score >= 60000) return 'ur';
-    if (score >= 30000) return 'ep';
-    if (score >= 15000) return 'sr';
+    if (score >= 120000) return 'ur';
+    if (score >= 60000) return 'ssr';
+    if (score >= 30000) return 'sr';
+    if (score >= 15000) return 'ep';
     if (score >= 6000) return 'r';
     if (score >= 2000) return 'uc';
     return 'n';
@@ -398,9 +401,24 @@
 
       await delay(350);
 
+      // 신규 등급 순서 기준으로 대박 팩 여부를 미리 알 수 있는 전율의 오라 프리뷰 연출 (Glow Aura)
+      // UR 이상: 'ur', 'lg'
+      // SR 이상: 'sr', 'ssr', 'ur', 'lg'
+      const hasURPlus = currentPack.some(c => ['ur', 'lg'].includes(c.rarity));
+      const hasSRPlus = currentPack.some(c => ['sr', 'ssr', 'ur', 'lg'].includes(c.rarity));
+
+      let glowClass = '';
+      if (hasURPlus) {
+        glowClass = ' has-ur-glow';
+        setTimeout(() => showToast('🔥 [UR 이상 확정] 찬란한 전설의 기운이 온몸을 휘감습니다! 🔥'), 300);
+      } else if (hasSRPlus) {
+        glowClass = ' has-sr-glow';
+        setTimeout(() => showToast('🌟 [SR 이상 확정] 카드팩 내부에서 영롱한 기운이 새어 나옵니다! 🌟'), 300);
+      }
+
       // 봉투 숨기기, 3D 단일 카드 더미(stack-mode) 구역 활성화
       dom.packEnvelope.style.display = 'none';
-      dom.cardsRow.className = 'cards-row stack-mode active';
+      dom.cardsRow.className = 'cards-row stack-mode active' + glowClass;
       buildPackCards();
       dom.revealCounter.classList.add('active');
       updateRevealCounter();
