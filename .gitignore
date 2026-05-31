@@ -1,6 +1,6 @@
-# 대용량 로컬 데이터베이스 및 데이터셋 제외
-gacha.db
+# 대용량 로컬 데이터 원본 및 전처리 스크립트 제외
 data/
+build_chunks.py
 
 # OS/IDE 임시 파일
 .DS_Store

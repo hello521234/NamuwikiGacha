@@ -30,6 +30,7 @@
   let currentSort = 'newest';
   let isPulling = false;
   let offlineDb = []; // Local offline database for ACG
+  let loadedChunkIndex = -1; // Index of current loaded JSON chunk
 
   // Pack state
   let currentPack = [];      // array of card entries for current pack
@@ -99,6 +100,10 @@
     exportBtn: $('#export-btn'),
     importBtn: $('#import-btn'),
     importFileInput: $('#import-file-input'),
+    
+    // Pool Info & Controls
+    poolInfo: $('#pool-info'),
+    poolChangeBtn: $('#pool-change-btn'),
     
     particlesContainer: $('#particles-container'),
     toastContainer: $('#toast-container'),
@@ -220,20 +225,7 @@
 
   // ============ API ============
   async function fetchPackArticles() {
-    try {
-      // 1. Attempt to fetch 5 random cards from the local SQLite server
-      const response = await fetch('/api/pull');
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data) && data.length === 5) {
-          return data;
-        }
-      }
-    } catch (e) {
-      console.warn("Local SQLite server API not available. Falling back to local offline JSON database.");
-    }
-
-    // 2. Static Host Fallback (e.g. GitHub Pages): Draw from pre-loaded acg_data.json
+    // 21만 개의 고품질 서브컬쳐 데이터가 들어있는 조각 JSON 청크로부터 즉석 드로우
     if (offlineDb && offlineDb.length > 0) {
       const pack = [];
       for (let i = 0; i < PACK_SIZE; i++) {
@@ -244,12 +236,15 @@
           text: entry.text,
           contributors: entry.contributors || '',
           namespace: '',
-          type: entry.type || ''
+          type: entry.type || '',
+          origLength: entry.origLength,
+          origContribCount: entry.origContribCount,
+          origScore: entry.origScore
         });
       }
       return pack;
     }
-    throw new Error("No gacha database available. Please run server.py or ensure acg_data.json is loaded.");
+    throw new Error("No gacha database available. Please wait until card pool chunks are loaded.");
   }
 
   // ============ Pack Pull Flow ============
@@ -279,12 +274,11 @@
 
       // Build card entries
       currentPack = articles.map(article => {
-        const textLength = (article.text || '').length;
-        const contribs = article.contributors ? article.contributors.split(',') : [];
-        const contributorCount = contribs.length;
+        // 청크 데이터에 사전 보존된 원본 기여자 통계, 글자수, 스코어가 있을 경우 적용하여 완벽한 등급 복원 수행
+        const textLength = article.origLength !== undefined ? article.origLength : (article.text || '').length;
+        const contributorCount = article.origContribCount !== undefined ? article.origContribCount : (article.contributors ? article.contributors.split(',').filter(Boolean).length : 0);
+        const score = article.origScore !== undefined ? article.origScore : (textLength + (contributorCount * 100));
         
-        // Complex score system: Text length + Contributors * 100
-        const score = textLength + (contributorCount * 100);
         const rarity = getRarity(score);
         const isDuplicate = collection.some(c => c.title === article.title);
 
@@ -874,18 +868,56 @@
       if (e.target === dom.modalOverlay) closeModal();
     });
     dom.modalDeleteBtn.addEventListener('click', deleteFromModal);
+
+    // 카드풀 수동 전환 버튼 바인딩
+    if (dom.poolChangeBtn) {
+      dom.poolChangeBtn.addEventListener('click', () => {
+        loadOfflineDb();
+      });
+    }
   }
 
-  async function loadOfflineDb() {
+  async function loadOfflineDb(forceIndex = null) {
     try {
-      const response = await fetch('acg_data.json');
+      if (dom.poolInfo) {
+        dom.poolInfo.textContent = '🔄 카드 데이터 불러오는 중...';
+      }
+      if (dom.poolChangeBtn) {
+        dom.poolChangeBtn.disabled = true;
+      }
+
+      // 0~19 범위의 무작위 청크 인덱스 선정
+      let chunkIdx = forceIndex !== null ? forceIndex : Math.floor(Math.random() * 20);
+      
+      // 연속으로 같은 청크가 나오는 것을 완화
+      if (forceIndex === null && chunkIdx === loadedChunkIndex) {
+        chunkIdx = (chunkIdx + 1) % 20;
+      }
+
+      const response = await fetch(`chunks/acg_chunk_${chunkIdx}.json`);
       if (response.ok) {
         offlineDb = await response.json();
-        console.log(`Loaded ${offlineDb.length} offline ACG cards successfully!`);
-        showToast(`⚡ 초고속 로컬 가챠가 연동되었습니다! (${offlineDb.length}장 수록)`);
+        loadedChunkIndex = chunkIdx;
+        console.log(`Loaded chunk #${chunkIdx} containing ${offlineDb.length} offline ACG cards successfully!`);
+        
+        // UI 현황판 갱신
+        if (dom.poolInfo) {
+          dom.poolInfo.innerHTML = `🌟 <strong>서브컬쳐 풀 #${chunkIdx + 1}</strong> (${offlineDb.length.toLocaleString()}장)`;
+        }
+        showToast(`✨ 서브컬쳐 가챠풀 #${chunkIdx + 1}이 활성화되었습니다! (${offlineDb.length.toLocaleString()}장)`);
+      } else {
+        throw new Error(`Failed to load chunk #${chunkIdx}`);
       }
     } catch (e) {
-      console.warn("Offline database file (acg_data.json) not found. Falling back to online live API.");
+      console.error("Chunk load failed:", e);
+      if (dom.poolInfo) {
+        dom.poolInfo.textContent = '❌ 카드풀 로드 실패 (새로고침 해주세요)';
+      }
+      showToast('❌ 카드 데이터 로드에 실패했습니다. 새로고침을 시도해 주세요.');
+    } finally {
+      if (dom.poolChangeBtn) {
+        dom.poolChangeBtn.disabled = false;
+      }
     }
   }
 
