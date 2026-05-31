@@ -46,6 +46,7 @@
   let currentFilter = 'all';
   let currentSort = 'newest';
   let isPulling = false;
+  let offlineDb = []; // Local offline database for ACG
 
   // Pack state
   let currentPack = [];      // array of card entries for current pack
@@ -238,6 +239,19 @@
 
   // ============ API ============
   async function fetchOneArticle() {
+    // If ACG dataset is selected and we have a local offline database loaded, pull instantly from local data!
+    if (selectedDataset === 'acg' && offlineDb.length > 0) {
+      const idx = Math.floor(Math.random() * offlineDb.length);
+      const row = offlineDb[idx];
+      return {
+        title: row.title,
+        text: row.text,
+        contributors: row.contributors || '',
+        namespace: '',
+        type: row.type || '',
+      };
+    }
+
     const config = DATASETS_CONFIG[selectedDataset];
     
     // Retry to skip redirect articles and handle network/API failures
@@ -921,10 +935,24 @@
     dom.modalDeleteBtn.addEventListener('click', deleteFromModal);
   }
 
+  async function loadOfflineDb() {
+    try {
+      const response = await fetch('acg_data.json');
+      if (response.ok) {
+        offlineDb = await response.json();
+        console.log(`Loaded ${offlineDb.length} offline ACG cards successfully!`);
+        showToast(`⚡ 초고속 로컬 가챠가 연동되었습니다! (${offlineDb.length}장 수록)`);
+      }
+    } catch (e) {
+      console.warn("Offline database file (acg_data.json) not found. Falling back to online live API.");
+    }
+  }
+
   // ============ Init ============
   function init() {
     loadData();
     initEvents();
+    loadOfflineDb();
     updateAllUI();
   }
 
