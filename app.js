@@ -9,6 +9,8 @@
   // ============ Constants & Configurations ============
   const STORAGE_KEY = 'namuwiki_gacha_collection';
   const STATS_KEY = 'namuwiki_gacha_stats';
+  const VERSION_KEY = 'namuwiki_gacha_version';
+  const CURRENT_VERSION = '4.0';
   const PACK_SIZE = 5;
 
   // 8-tier rarity configurations based on Combined Score (Text length + Contributors * 100)
@@ -108,6 +110,17 @@
   // ============ Storage ============
   function loadData() {
     try {
+      // 신규 ACG 가챠 4.0 전면 전환에 맞춰 이전 가챠 기록을 자동으로 깨끗하게 1회 초기화
+      const currentVer = localStorage.getItem(VERSION_KEY);
+      if (currentVer !== CURRENT_VERSION) {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(STATS_KEY);
+        localStorage.setItem(VERSION_KEY, CURRENT_VERSION);
+        collection = [];
+        stats = { totalPulls: 0 };
+        return;
+      }
+
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         collection = JSON.parse(raw);
