@@ -10,7 +10,7 @@
   const STORAGE_KEY = 'namuwiki_gacha_collection';
   const STATS_KEY = 'namuwiki_gacha_stats';
   const VERSION_KEY = 'namuwiki_gacha_version';
-  const CURRENT_VERSION = '4.0';
+  const CURRENT_VERSION = '5.0';
   const PACK_SIZE = 5;
   const CARDS_PER_PAGE = 24;
 
