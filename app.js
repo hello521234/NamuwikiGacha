@@ -765,7 +765,7 @@
     });
 
     dom.packSummaryRarities.innerHTML = '';
-    const order = ['lg', 'ssr', 'ur', 'ep', 'sr', 'r', 'uc', 'n'];
+    const order = ['lg', 'ur', 'ssr', 'sr', 'ep', 'r', 'uc', 'n'];
     order.forEach(rarity => {
       if (rarityCounts[rarity]) {
         const config = RARITY_CONFIG[rarity];
