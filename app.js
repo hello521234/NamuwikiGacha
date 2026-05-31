@@ -1066,6 +1066,31 @@
     dom.navTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.page === pageName));
     dom.pages.forEach(page => page.classList.toggle('active', page.id === `page-${pageName}`));
     if (pageName === 'collection') renderCollection();
+    if (pageName === 'gacha') resetGachaStage();
+  }
+
+  function resetGachaStage() {
+    if (isOpeningPack) return;
+
+    // 1. 결과 요약 창 비활성화
+    dom.packSummary.classList.remove('active');
+
+    // 2. 카드 공개 카운터 비활성화
+    dom.revealCounter.classList.remove('active');
+
+    // 3. 카드 결과 감상 화살표 및 미니 썸네일 바 숨김
+    if (dom.resultPrevBtn) dom.resultPrevBtn.style.display = 'none';
+    if (dom.resultNextBtn) dom.resultNextBtn.style.display = 'none';
+    if (dom.miniThumbBar) dom.miniThumbBar.style.display = 'none';
+
+    // 4. 한번에 까기 컨트롤 및 cards-row 비활성화/초기화
+    if (dom.deckControls) dom.deckControls.style.display = 'none';
+    dom.cardsRow.className = 'cards-row';
+    dom.cardsRow.innerHTML = '';
+
+    // 5. 팩 봉투 노출 복구
+    dom.packEnvelope.style.display = 'flex';
+    dom.packEnvelope.classList.remove('opening');
   }
 
   // ============ Utilities ============
