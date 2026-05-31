@@ -862,9 +862,42 @@ body::before {
   transform: scale(1.1);
 }
 
-/* 3D Stacked Card Design & Fly Animation */
-.cards-row {
+/* 3D Stacked Card Design & Slide-off Swiping */
+.cards-row.stack-mode {
   position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 320px;
+  width: 100%;
+  margin-top: 16px;
+  perspective: 1000px;
+}
+.cards-row.stack-mode .card-wrapper {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) rotate(var(--stack-rot)) scale(1) !important;
+  z-index: var(--stack-z) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.2), opacity 0.5s ease;
+}
+/* Only the top card in the stack is hoverable and clickable */
+.cards-row.stack-mode .card-wrapper:hover {
+  transform: translate(-50%, -55%) rotate(0deg) scale(1.03) !important;
+}
+
+/* Swiped Card flies out of the stack */
+.cards-row.stack-mode .card-wrapper.swiped {
+  transform: translate(-50%, -160%) rotate(15deg) scale(0.9) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Spread Out Mode (Lined up side-by-side once all opened) */
+.cards-row:not(.stack-mode) {
   display: flex;
   gap: 16px;
   justify-content: center;
@@ -872,34 +905,16 @@ body::before {
   min-height: 290px;
   width: 100%;
   margin-top: 16px;
+  flex-wrap: nowrap;
 }
-.card-slot {
-  width: 170px;
-  height: 238px;
-  border-radius: var(--radius-md);
-  border: 2px dashed rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.01);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  box-shadow: inset 0 0 15px rgba(0,0,0,0.2);
-}
-
-/* The stack card itself */
-.card-wrapper.stacked {
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  transform: translate(-50%, -50%) rotate(var(--stack-rot)) scale(0.95) !important;
-  z-index: var(--stack-z) !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
-  cursor: pointer;
-  transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275), left 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), z-index 0.3s;
-}
-.card-wrapper.stacked:hover {
-  transform: translate(-50%, -55%) rotate(0deg) scale(1.02) !important;
-  z-index: 100 !important;
+.cards-row:not(.stack-mode) .card-wrapper {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  z-index: 1 !important;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 /* Card reveal overlay buttons */

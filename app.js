@@ -387,10 +387,10 @@
 
       await delay(350);
 
-      // Hide envelope, show cards row
+      // 봉투 숨기기, 3D 단일 카드 더미(stack-mode) 구역 활성화
       dom.packEnvelope.style.display = 'none';
+      dom.cardsRow.className = 'cards-row stack-mode active';
       buildPackCards();
-      dom.cardsRow.classList.add('active');
       dom.revealCounter.classList.add('active');
       updateRevealCounter();
 
@@ -430,14 +430,9 @@
       const mappedType = TYPE_LABELS[entry.type] || entry.type;
       const typeHtml = mappedType ? `<span class="pf-type-tag">${mappedType}</span>` : '';
 
-      // 1. 카드 슬롯Placeholder 생성
-      const slotEl = document.createElement('div');
-      slotEl.className = 'card-slot';
-      slotEl.dataset.slotIndex = index;
-
-      // 2. 3D 겹침 카드 Wrapper 생성
+      // 1. 3D 겹침 카드 Wrapper 생성 (직접 dom.cardsRow에 절대 좌표로 겹쳐서 배치)
       const cardWrapper = document.createElement('div');
-      cardWrapper.className = 'card-wrapper stacked';
+      cardWrapper.className = 'card-wrapper';
       
       // 카드 더미의 회전각도 및 z-index 계산 (0번 카드가 가장 맨 위에 놓임)
       const rot = (index - 2) * 2.5 + (Math.random() * 2 - 1);
@@ -446,7 +441,7 @@
       cardWrapper.style.setProperty('--stack-z', zIndex);
       cardWrapper.id = `card-wrapper-${index}`;
 
-      // 3. 실제 뒤집힐 팩 카드 생성
+      // 2. 실제 뒤집힐 팩 카드 생성
       const packCard = document.createElement('div');
       packCard.className = 'pack-card';
       packCard.dataset.index = index;
@@ -476,34 +471,38 @@
         </div>
       `;
 
-      // 클릭 시 겹침 카드 비행 공개 혹은 디테일 모달 창 열기 분기
+      // 클릭 이벤트 분기:
+      // - stack-mode 일 때:
+      //   - 아직 뒷면인 경우: 카드를 3D 앞면으로 뒤집기
+      //   - 이미 앞면인 경우: 카드를 스위프하여 날려서 다음 카드를 보이게 하기
+      // - 1열 정렬(not stack-mode) 일 때: 디테일 모달 창 열기
       packCard.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (cardWrapper.classList.contains('stacked')) {
-          popAndRevealCard(index);
-        } else {
-          if (packCard.classList.contains('revealed')) {
-            openModal(entry);
+        
+        const isStackMode = dom.cardsRow.classList.contains('stack-mode');
+        
+        if (isStackMode) {
+          if (!packCard.classList.contains('revealed')) {
+            flipCardInStack(index);
+          } else {
+            swipeCardAway(index);
           }
+        } else {
+          openModal(entry);
         }
       });
 
       cardWrapper.appendChild(packCard);
-      slotEl.appendChild(cardWrapper);
-      dom.cardsRow.appendChild(slotEl);
+      dom.cardsRow.appendChild(cardWrapper);
     });
   }
 
-  function popAndRevealCard(index) {
+  function flipCardInStack(index) {
     const cardWrapper = $(`#card-wrapper-${index}`);
-    if (!cardWrapper || !cardWrapper.classList.contains('stacked')) return;
+    if (!cardWrapper) return;
 
     const packCard = cardWrapper.querySelector('.pack-card');
     const entry = currentPack[index];
-
-    // stacked 클래스 해제 -> 덱 중첩에서 빠져나와 각자의 슬롯으로 매끄럽게 비상(Fly) 이동!
-    cardWrapper.classList.remove('stacked');
-    cardWrapper.style.setProperty('--stack-z', '20'); // 비행 시 맨 앞으로 보정
 
     // 3D 뒤집기 활성화
     packCard.classList.add('revealed');
@@ -525,12 +524,29 @@
     }
 
     updateRevealCounter();
+  }
 
-    // 5장 전부 다 깠는지 판별
-    if (revealedCount >= PACK_SIZE) {
-      if (dom.deckControls) dom.deckControls.style.display = 'none';
-      showPackSummary();
-      dom.revealCounter.classList.remove('active');
+  function swipeCardAway(index) {
+    const cardWrapper = $(`#card-wrapper-${index}`);
+    if (!cardWrapper || cardWrapper.classList.contains('swiped')) return;
+
+    // 카드를 위로 날리고 fade-out하는 swiped 클래스 추가
+    cardWrapper.classList.add('swiped');
+
+    // 5장이 전부 다 스위프되었는지 판별
+    const wrappers = Array.from(dom.cardsRow.querySelectorAll('.card-wrapper'));
+    const swipedCount = wrappers.filter(w => w.classList.contains('swiped')).length;
+
+    if (swipedCount >= PACK_SIZE) {
+      // 5장 모두 넘겼을 때! 3D 카드 더미를 즉각 해제하고 1열 쫙 나열!
+      setTimeout(() => {
+        dom.cardsRow.classList.remove('stack-mode');
+        wrappers.forEach(w => w.classList.remove('swiped'));
+        
+        if (dom.deckControls) dom.deckControls.style.display = 'none';
+        showPackSummary();
+        dom.revealCounter.classList.remove('active');
+      }, 500); // swipe 트랜지션 타임과 연동
     }
   }
 
@@ -539,18 +555,39 @@
     
     if (dom.deckControls) dom.deckControls.style.display = 'none';
     
-    // 아직 안 까진 카드들을 순차적으로 눈부시게 비행 공개 (Staggered Delay)
+    // 겹침 스택 상태를 전격 해제하여 즉석 1열 배치!
+    dom.cardsRow.classList.remove('stack-mode');
+    
+    const wrappers = dom.cardsRow.querySelectorAll('.card-wrapper');
+    wrappers.forEach(w => w.classList.remove('swiped'));
+
+    // 5장 카드를 1열 정렬 상태에서 순차적으로 정교하게 뒤집기 (Staggered Reveal)
     for (let i = 0; i < PACK_SIZE; i++) {
       const cardWrapper = $(`#card-wrapper-${i}`);
-      if (cardWrapper && cardWrapper.classList.contains('stacked')) {
-        popAndRevealCard(i);
-        await delay(150);
+      if (cardWrapper) {
+        const packCard = cardWrapper.querySelector('.pack-card');
+        if (packCard && !packCard.classList.contains('revealed')) {
+          const entry = currentPack[i];
+          packCard.classList.add('revealed');
+          revealedCount++;
+          
+          const config = RARITY_CONFIG[entry.rarity];
+          if (['ur', 'ssr', 'lg'].includes(entry.rarity)) {
+            spawnParticlesAt(packCard, entry.rarity, 20);
+          }
+          
+          updateRevealCounter();
+          await delay(150);
+        }
       }
     }
+
+    showPackSummary();
+    dom.revealCounter.classList.remove('active');
   }
 
   function updateRevealCounter() {
-    dom.revealCounter.textContent = `카드를 클릭하여 공개하세요! (${revealedCount}/${PACK_SIZE})`;
+    dom.revealCounter.textContent = `카드를 클릭하여 공개/넘기기 하세요! (${revealedCount}/${PACK_SIZE})`;
   }
 
   function showPackSummary() {
