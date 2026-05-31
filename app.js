@@ -187,6 +187,13 @@
             entry.score = entry.textLength + (entry.contributorCount * 100);
             migrated = true;
           }
+          
+          // 신규 Rarity 등급 개편 질서(EP -> SR -> SSR -> UR)에 맞게 실시간 자동 보정(Migration) 수행
+          const correctRarity = getRarity(entry.score);
+          if (entry.rarity !== correctRarity) {
+            entry.rarity = correctRarity;
+            migrated = true;
+          }
         });
         
         if (migrated) {
