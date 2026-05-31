@@ -7,25 +7,9 @@
   'use strict';
 
   // ============ Constants & Configurations ============
-  const API_BASE = 'https://datasets-server.huggingface.co/rows';
   const STORAGE_KEY = 'namuwiki_gacha_collection';
   const STATS_KEY = 'namuwiki_gacha_stats';
   const PACK_SIZE = 5;
-  const MAX_RETRY = 10; // max retries per card to skip redirects
-
-  // Dataset configurations: hell0ks/namuwiki-extracted-acg-filtered (ACG) & heegyu/namuwiki (Full)
-  const DATASETS_CONFIG = {
-    acg: {
-      id: 'hell0ks/namuwiki-extracted-acg-filtered',
-      rows: 210484,
-      name: '덕질/서브컬쳐 테마'
-    },
-    full: {
-      id: 'heegyu/namuwiki',
-      rows: 867024,
-      name: '전체 나무위키 테마'
-    }
-  };
 
   // 8-tier rarity configurations based on Combined Score (Text length + Contributors * 100)
   const RARITY_CONFIG = {
@@ -40,7 +24,6 @@
   };
 
   // ============ State ============
-  let selectedDataset = 'acg'; // Default to ACG (Anime/Game/Manga)
   let collection = [];
   let stats = { totalPulls: 0 };
   let currentFilter = 'all';
@@ -111,8 +94,6 @@
     modalDate: $('#modal-date'),
     modalNamuLink: $('#modal-namu-link'),
     modalDeleteBtn: $('#modal-delete-btn'),
-    // Dataset Selector
-    datasetSelect: $('#dataset-select'),
 
     // Backup Buttons
     exportBtn: $('#export-btn'),
@@ -238,70 +219,37 @@
   }
 
   // ============ API ============
-  async function fetchOneArticle() {
-    // If ACG dataset is selected and we have a local offline database loaded, pull instantly from local data!
-    if (selectedDataset === 'acg' && offlineDb.length > 0) {
-      const idx = Math.floor(Math.random() * offlineDb.length);
-      const row = offlineDb[idx];
-      return {
-        title: row.title,
-        text: row.text,
-        contributors: row.contributors || '',
-        namespace: '',
-        type: row.type || '',
-      };
-    }
-
-    const config = DATASETS_CONFIG[selectedDataset];
-    
-    // Retry to skip redirect articles and handle network/API failures
-    for (let attempt = 0; attempt < MAX_RETRY; attempt++) {
-      try {
-        const offset = Math.floor(Math.random() * config.rows);
-        const url = `${API_BASE}?dataset=${encodeURIComponent(config.id)}&config=default&split=train&offset=${offset}&length=1`;
-
-        const response = await fetch(url);
-        if (!response.ok) {
-          console.warn(`[API Attempt ${attempt + 1}/${MAX_RETRY}] Returned non-ok status: ${response.status}`);
-          continue; // Retry with a different offset
-        }
-
+  async function fetchPackArticles() {
+    try {
+      // 1. Attempt to fetch 5 random cards from the local SQLite server
+      const response = await fetch('/api/pull');
+      if (response.ok) {
         const data = await response.json();
-        if (!data.rows || data.rows.length === 0) continue;
-
-        const row = data.rows[0].row;
-
-        // Skip redirects
-        if (isRedirect(row.text)) continue;
-
-        // Skip very short/empty entries
-        if (!row.text || row.text.trim().length < 10) continue;
-
-        return {
-          title: row.title,
-          text: row.text,
-          contributors: row.contributors || '',
-          namespace: row.namespace || '',
-          type: row.type || '', // ACG type category
-        };
-      } catch (err) {
-        console.warn(`[API Attempt ${attempt + 1}/${MAX_RETRY}] Failed with error:`, err);
-        // Wait a short time before retrying to prevent hammering the server during rate limits
-        if (attempt < MAX_RETRY - 1) {
-          await delay(200 + Math.random() * 300);
+        if (Array.isArray(data) && data.length === 5) {
+          return data;
         }
       }
+    } catch (e) {
+      console.warn("Local SQLite server API not available. Falling back to local offline JSON database.");
     }
-    throw new Error('Could not find a valid Namuwiki article after maximum retries');
-  }
 
-  async function fetchPackArticles() {
-    // Fetch 5 articles in parallel
-    const promises = [];
-    for (let i = 0; i < PACK_SIZE; i++) {
-      promises.push(fetchOneArticle());
+    // 2. Static Host Fallback (e.g. GitHub Pages): Draw from pre-loaded acg_data.json
+    if (offlineDb && offlineDb.length > 0) {
+      const pack = [];
+      for (let i = 0; i < PACK_SIZE; i++) {
+        const idx = Math.floor(Math.random() * offlineDb.length);
+        const entry = offlineDb[idx];
+        pack.push({
+          title: entry.title,
+          text: entry.text,
+          contributors: entry.contributors || '',
+          namespace: '',
+          type: entry.type || ''
+        });
+      }
+      return pack;
     }
-    return Promise.all(promises);
+    throw new Error("No gacha database available. Please run server.py or ensure acg_data.json is loaded.");
   }
 
   // ============ Pack Pull Flow ============
@@ -346,12 +294,12 @@
           text: article.text,
           contributors: article.contributors,
           contributorCount: contributorCount,
-          namespace: article.namespace,
+          namespace: article.namespace || '',
           rarity: rarity,
           textLength: textLength,
           score: score,
           type: article.type || '', // ACG category type
-          dataset: selectedDataset, // Store active theme source
+          dataset: 'acg', // Always ACG theme source
           pulledAt: new Date().toISOString(),
           isDuplicate: isDuplicate,
         };
@@ -825,13 +773,6 @@
       currentSort = e.target.value;
       renderCollection();
     });
-
-    if (dom.datasetSelect) {
-      dom.datasetSelect.addEventListener('change', (e) => {
-        selectedDataset = e.target.value;
-        showToast(`🌌 카드팩 테마 변경: ${DATASETS_CONFIG[selectedDataset].name}`);
-      });
-    }
 
     dom.clearBtn.addEventListener('click', () => {
       if (collection.length === 0) { showToast('📭 삭제할 카드가 없습니다'); return; }
