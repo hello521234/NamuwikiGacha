@@ -101,10 +101,6 @@
     importBtn: $('#import-btn'),
     importFileInput: $('#import-file-input'),
     
-    // Pool Info & Controls
-    poolInfo: $('#pool-info'),
-    poolChangeBtn: $('#pool-change-btn'),
-    
     particlesContainer: $('#particles-container'),
     toastContainer: $('#toast-container'),
   };
@@ -271,6 +267,9 @@
     try {
       // Fetch 5 articles
       const articles = await fetchPackArticles();
+
+      // 다음 뽑기 시 다양한 풀이 나오도록 백그라운드에서 신규 청크 풀을 비동기로 미리 로드! (Pre-fetch)
+      loadOfflineDb(null, true);
 
       // Build card entries
       currentPack = articles.map(article => {
@@ -869,23 +868,10 @@
     });
     dom.modalDeleteBtn.addEventListener('click', deleteFromModal);
 
-    // 카드풀 수동 전환 버튼 바인딩
-    if (dom.poolChangeBtn) {
-      dom.poolChangeBtn.addEventListener('click', () => {
-        loadOfflineDb();
-      });
-    }
   }
 
-  async function loadOfflineDb(forceIndex = null) {
+  async function loadOfflineDb(forceIndex = null, isSilent = false) {
     try {
-      if (dom.poolInfo) {
-        dom.poolInfo.textContent = '🔄 카드 데이터 불러오는 중...';
-      }
-      if (dom.poolChangeBtn) {
-        dom.poolChangeBtn.disabled = true;
-      }
-
       // 0~19 범위의 무작위 청크 인덱스 선정
       let chunkIdx = forceIndex !== null ? forceIndex : Math.floor(Math.random() * 20);
       
@@ -900,24 +886,14 @@
         loadedChunkIndex = chunkIdx;
         console.log(`Loaded chunk #${chunkIdx} containing ${offlineDb.length} offline ACG cards successfully!`);
         
-        // UI 현황판 갱신
-        if (dom.poolInfo) {
-          dom.poolInfo.innerHTML = `🌟 <strong>서브컬쳐 풀 #${chunkIdx + 1}</strong> (${offlineDb.length.toLocaleString()}장)`;
+        if (!isSilent) {
+          showToast(`✨ 새로운 카드 테마 세트가 동기화되었습니다!`);
         }
-        showToast(`✨ 서브컬쳐 가챠풀 #${chunkIdx + 1}이 활성화되었습니다! (${offlineDb.length.toLocaleString()}장)`);
       } else {
         throw new Error(`Failed to load chunk #${chunkIdx}`);
       }
     } catch (e) {
-      console.error("Chunk load failed:", e);
-      if (dom.poolInfo) {
-        dom.poolInfo.textContent = '❌ 카드풀 로드 실패 (새로고침 해주세요)';
-      }
-      showToast('❌ 카드 데이터 로드에 실패했습니다. 새로고침을 시도해 주세요.');
-    } finally {
-      if (dom.poolChangeBtn) {
-        dom.poolChangeBtn.disabled = false;
-      }
+      console.error("Chunk load failed in background:", e);
     }
   }
 
@@ -925,7 +901,7 @@
   function init() {
     loadData();
     initEvents();
-    loadOfflineDb();
+    loadOfflineDb(null, true); // 초기 로딩도 조용히 백그라운드에서 수행
     updateAllUI();
   }
 
