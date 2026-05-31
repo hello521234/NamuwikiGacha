@@ -52,6 +52,7 @@
   let currentPack = [];      // array of card entries for current pack
   let revealedCount = 0;
   let activeResultIndex = 0; // 결과 감상 캐러셀에서 활성화된 카드 인덱스
+  let isOpeningPack = false; // 현재 카드팩을 1장씩 순차적으로 까고 있는 중인지 여부 (버튼 잠금장치)
 
   // ============ DOM ============
   const $ = (sel) => document.querySelector(sel);
@@ -316,8 +317,9 @@
 
   // ============ Pack Pull Flow ============
   async function pullPack() {
-    if (isPulling) return;
+    if (isPulling || isOpeningPack) return;
     isPulling = true;
+    isOpeningPack = true; // 개봉 시작! (잠금 활성화)
 
     const pullBtn = dom.pullBtn;
     pullBtn.classList.add('loading');
@@ -409,10 +411,11 @@
       await delay(350);
 
       // 신규 등급 순서 기준으로 대박 팩 여부를 미리 알 수 있는 전율의 오라 프리뷰 연출 (Glow Aura)
-      // UR 이상: 'ur', 'lg'
-      // SR 이상: 'sr', 'ssr', 'ur', 'lg'
-      const hasURPlus = currentPack.some(c => ['ur', 'lg'].includes(c.rarity));
-      const hasSRPlus = currentPack.some(c => ['sr', 'ssr', 'ur', 'lg'].includes(c.rarity));
+      // 0~3번째 카드(처음 4장)에 SR 및 UR 이상이 포함되어 있는지 여부만 확인하여 프리뷰 글로우 결정!
+      // 5번째 카드에만 단독으로 나타나는 경우 오라를 생략하여 극적 긴장감 및 반전 서프라이즈 극대화!
+      const firstFourCards = currentPack.slice(0, 4);
+      const hasURPlus = firstFourCards.some(c => ['ur', 'lg'].includes(c.rarity));
+      const hasSRPlus = firstFourCards.some(c => ['sr', 'ssr', 'ur', 'lg'].includes(c.rarity));
 
       let glowClass = '';
       if (hasURPlus) {
@@ -434,10 +437,14 @@
       console.error('Pack pull failed:', error);
       showToast('❌ 카드팩 뽑기 실패 — 잠시 후 다시 시도해주세요');
       dom.packEnvelope.classList.remove('opening');
+      isOpeningPack = false; // 에러 시 잠금 해제!
     } finally {
       isPulling = false;
       pullBtn.classList.remove('loading');
-      pullBtn.disabled = false;
+      // 개봉 중 상태라면 뽑기 버튼을 비활성화(disabled) 상태로 계속 유지하여 강제 팩 스킵을 원천 차단!
+      if (!isOpeningPack) {
+        pullBtn.disabled = false;
+      }
     }
   }
 
@@ -533,6 +540,53 @@
     });
   }
 
+  function triggerStageShake() {
+    const stage = dom.packStage;
+    if (stage) {
+      stage.classList.remove('stage-shake-active');
+      void stage.offsetWidth; // force reflow
+      stage.classList.add('stage-shake-active');
+      setTimeout(() => stage.classList.remove('stage-shake-active'), 400);
+    }
+  }
+
+  function triggerRevealEffects(packCard, entry) {
+    const config = RARITY_CONFIG[entry.rarity];
+    const rarity = entry.rarity;
+
+    if (['lg', 'ur', 'ssr'].includes(rarity)) {
+      triggerStageShake();
+    }
+
+    if (['lg', 'ur', 'ssr', 'sr', 'ep'].includes(rarity)) {
+      showRevealGlow(rarity);
+    }
+
+    let particleCount = 0;
+    if (rarity === 'lg') {
+      particleCount = 100;
+      showToast(`✨ ${config.label} — ${entry.title}`);
+    } else if (rarity === 'ur') {
+      particleCount = 70;
+      showToast(`✨ ${config.label} — ${entry.title}`);
+    } else if (rarity === 'ssr') {
+      particleCount = 50;
+      showToast(`✨ ${config.label} — ${entry.title}`);
+    } else if (rarity === 'sr') {
+      particleCount = 35;
+      showToast(`💫 ${config.label} — ${entry.title}`);
+    } else if (rarity === 'ep') {
+      particleCount = 25;
+      showToast(`💫 ${config.label} — ${entry.title}`);
+    } else if (rarity === 'r') {
+      particleCount = 12;
+    }
+
+    if (particleCount > 0) {
+      spawnParticlesAt(packCard, rarity, particleCount);
+    }
+  }
+
   function flipCardInStack(index) {
     const cardWrapper = $(`#card-wrapper-${index}`);
     if (!cardWrapper) return;
@@ -544,20 +598,8 @@
     packCard.classList.add('revealed');
     revealedCount++;
 
-    const config = RARITY_CONFIG[entry.rarity];
-
     // 등급별 특수 임팩트 방출
-    if (['ur', 'ssr', 'lg'].includes(entry.rarity)) {
-      showRevealGlow(entry.rarity);
-      spawnParticlesAt(packCard, entry.rarity, 35);
-      showToast(`✨ ${config.label} — ${entry.title}`);
-    } else if (entry.rarity === 'ep' || entry.rarity === 'sr') {
-      showRevealGlow(entry.rarity);
-      spawnParticlesAt(packCard, entry.rarity, 20);
-      showToast(`💫 ${config.label} — ${entry.title}`);
-    } else if (entry.rarity === 'r') {
-      spawnParticlesAt(packCard, entry.rarity, 12);
-    }
+    triggerRevealEffects(packCard, entry);
 
     updateRevealCounter();
   }
@@ -599,6 +641,10 @@
 
         showPackSummary();
         dom.revealCounter.classList.remove('active');
+
+        // 잠금 해제 및 뽑기 버튼 원상복구!
+        isOpeningPack = false;
+        if (dom.pullBtn) dom.pullBtn.disabled = false;
       }, 500); // 트랜지션 타임 맞춤
     }
   }
@@ -637,17 +683,8 @@
           packCard.classList.add('revealed');
           revealedCount++;
 
-          const config = RARITY_CONFIG[entry.rarity];
-          if (['ur', 'ssr', 'lg'].includes(entry.rarity)) {
-            showRevealGlow(entry.rarity);
-            spawnParticlesAt(packCard, entry.rarity, 25);
-            showToast(`✨ ${config.label} — ${entry.title}`);
-          } else if (['ep', 'sr'].includes(entry.rarity)) {
-            showRevealGlow(entry.rarity);
-            spawnParticlesAt(packCard, entry.rarity, 15);
-          } else if (entry.rarity === 'r') {
-            spawnParticlesAt(packCard, entry.rarity, 10);
-          }
+          // 등급별 특수 임팩트 방출
+          triggerRevealEffects(packCard, entry);
 
           // 뒤집힌 썸네일 상태 갱신
           buildMiniThumbnails();
@@ -663,6 +700,10 @@
 
     showPackSummary();
     dom.revealCounter.classList.remove('active');
+    
+    // 잠금 해제 및 뽑기 버튼 원상복구!
+    isOpeningPack = false;
+    if (dom.pullBtn) dom.pullBtn.disabled = false;
   }
 
   function buildMiniThumbnails() {
@@ -1195,6 +1236,7 @@
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Space' && !e.target.closest('input, textarea, select')) {
         e.preventDefault();
+        if (isOpeningPack) return; // 개봉 중일 때 단축키 뽑기 차단
         const activePage = document.querySelector('.page.active');
         if (activePage && activePage.id === 'page-gacha') {
           pullPack();

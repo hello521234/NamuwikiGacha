@@ -1233,3 +1233,13 @@ body::before {
   .filter-row-label { min-width: 100%; margin-bottom: 4px; }
   .filter-pill { padding: 4px 8px; font-size: 10px; }
 }
+
+/* 카드팩 스테이지 입체 화면 흔들림 효과 (Hearthstone Style) */
+@keyframes stageShake {
+  0%, 100% { transform: translate(0, 0); }
+  10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -3px) rotate(-0.5deg); }
+  20%, 40%, 60%, 80% { transform: translate(6px, 3px) rotate(0.5deg); }
+}
+.stage-shake-active {
+  animation: stageShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
